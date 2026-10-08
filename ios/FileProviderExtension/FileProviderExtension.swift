@@ -48,7 +48,8 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
             do {
                 let client = try makeClient()
                 let parent = itemTemplate.parentItemIdentifier == .rootContainer ? "root" : itemTemplate.parentItemIdentifier.rawValue
-                let created = try await client.create(parentId: parent, name: itemTemplate.filename, isDirectory: itemTemplate.contentType.conforms(to: .folder))
+                let isDirectory = itemTemplate.contentType?.conforms(to: .folder) ?? false
+                let created = try await client.create(parentId: parent, name: itemTemplate.filename, isDirectory: isDirectory)
                 if let contents { _ = try await client.upload(id: created.id, from: contents) }
                 let fresh = try await client.item(id: created.id)
                 signalEnumerator(for: parent)

@@ -21,7 +21,8 @@ final class RemoteEnumerator: NSObject, NSFileProviderEnumerator {
                 if container == NSFileProviderItemIdentifier.workingSet.rawValue {
                     let identifiers = MaterializedItemStore.load(domainID: domain.identifier.rawValue)
                     let offset = Int(continuationToken ?? "0") ?? 0
-                    let end = min(offset + min(max(observer.suggestedPageSize, 50), 200), identifiers.count)
+                    let suggestedPageSize = observer.suggestedPageSize ?? 200
+                    let end = min(offset + min(max(suggestedPageSize, 50), 200), identifiers.count)
                     let requested = offset < end ? Array(identifiers[offset..<end]) : []
                     let remoteItems = await withTaskGroup(of: BridgeItem?.self) { group in
                         var iterator = requested.makeIterator()
@@ -47,7 +48,8 @@ final class RemoteEnumerator: NSObject, NSFileProviderEnumerator {
                     guard parent.isDirectory else { observer.finishEnumerating(upTo: nil); return }
                     parentId = parent.id
                 }
-                let result = try await client.items(parentId: parentId, continuationToken: continuationToken, limit: min(max(observer.suggestedPageSize, 50), 500))
+                let suggestedPageSize = observer.suggestedPageSize ?? 200
+                let result = try await client.items(parentId: parentId, continuationToken: continuationToken, limit: min(max(suggestedPageSize, 50), 500))
                 observer.didEnumerate(result.items.map(RemoteProviderItem.init))
                 let next = result.next.map { NSFileProviderPage(rawValue: Data($0.utf8)) }
                 observer.finishEnumerating(upTo: next)
