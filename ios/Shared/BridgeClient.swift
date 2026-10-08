@@ -23,7 +23,7 @@ struct BridgeClient {
 
     func health() async throws -> String {
         let (data, response) = try await URLSession.shared.data(for: request("/api/health"))
-        try validate(response, data: data)
+        try Self.validate(response, data: data)
         return "接続できました"
     }
 
