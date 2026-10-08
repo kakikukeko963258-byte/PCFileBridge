@@ -14,13 +14,13 @@ Windows 11で選択したフォルダーを、iPhoneのFilesアプリの「場�
 - File Providerは閲覧、必要時のダウンロード、キャッシュ済みファイルの利用、作成、上書き、削除、名前変更、移動に対応します。Windows側FileSystemWatcherの差分履歴をFile Providerの変更列挙で返します。
 - Replicated File ProviderがOS上で管理するmaterialized項目をWorking Setに保持し、Files側キャッシュにある内容をオフラインで利用できるようにします。
 - iPhoneアプリが前面にある間は10秒間隔で差分APIを確認し、変更されたフォルダー、項目、Working Setの列挙をFile Providerへ通知します。差分だけを取得するため、全件の再取得を繰り返しません。
-- Windows単体exeの公開と、iOS Simulator向けビルドをGitHub Actionsで行います。Apple署名用Secretsを設定した場合はAltStore用IPAもArtifactに出力します。
+- Windows単体exe、iOS Simulator向けビルド、AltStore向け未署名IPAの作成をGitHub Actionsで行います。
 
 ## 開発環境
 
 - Windows 11: .NET 10 SDK
 - iOS: Windows上でSwiftを編集し、GitHub ActionsのmacOS 15 runnerとXcodeでビルドします。ローカルMacは不要です。
-- AltStoreへiPhoneに入れるには、Apple Development証明書と対象iPhoneを含むProvisioning Profileが必要です。GitHub Actions上で署名する場合は、後述のSecretsを登録してください。
+- AltStore ClassicはIPAをApple IDの開発証明書で再署名してiPhoneへ入れます。GitHub Actionsでは未署名IPAを作るため、Apple署名用Secretsは不要です。
 
 ## Windowsサーバーを起動する
 
@@ -54,25 +54,9 @@ dotnet publish windows/PCFileBridge.Windows/PCFileBridge.Windows.csproj `
 
 ## GitHub ActionsとIPA
 
-`.github/workflows/build.yml`はWindowsサーバーを単体exeへ公開し、macOS runnerでXcodeGenからXcodeプロジェクトを生成して、アプリとFile Provider ExtensionをiOS Simulator向けにビルドします。署名Secretsがない場合も、シミュレータ用ビルドはArtifactに出ます。
+`.github/workflows/build.yml`はWindowsサーバーを単体exeへ公開し、macOS runnerでXcodeGenからXcodeプロジェクトを生成して、アプリとFile Provider ExtensionをiOS Simulator向けとiPhone向けにビルドします。iPhone向けビルドは未署名IPAとしてArtifactに出力します。
 
-AltStore用IPAを作る場合、GitHub repository secretsに次を登録して`workflow_dispatch`を実行してください。
-
-| Secret | 内容 |
-| --- | --- |
-| `IOS_CERTIFICATE_BASE64` | Apple Development証明書入り`.p12`のBase64 |
-| `IOS_CERTIFICATE_PASSWORD` | `.p12`のパスワード |
-| `IOS_APP_PROVISIONING_PROFILE_BASE64` | iOSアプリ用Development Provisioning ProfileのBase64 |
-| `IOS_EXTENSION_PROVISIONING_PROFILE_BASE64` | File Provider Extension用ProfileのBase64 |
-| `IOS_TEAM_ID` | Apple Developer Team ID |
-| `IOS_APP_BUNDLE_ID` | アプリ用Bundle ID。添付IPAに合わせた初期値: `com.studyquiz.dailyquiz` |
-| `IOS_EXTENSION_BUNDLE_ID` | Extension用Bundle ID。初期値: `com.studyquiz.dailyquiz.FileProvider` |
-| `IOS_APP_GROUP` | 両Profileに含めたApp Group。初期値: `group.com.studyquiz.dailyquiz` |
-| `IOS_KEYCHAIN_GROUP` | 両Profileに含めた共有Keychain access group。初期値: `<TeamID>.com.studyquiz.dailyquiz.shared` |
-| `IOS_APP_PROFILE_NAME` | アプリProvisioning Profile内の`Name` |
-| `IOS_EXTENSION_PROFILE_NAME` | Extension Provisioning Profile内の`Name` |
-
-Provisioning Profile、Bundle ID、App Group、Keychain groupの値は署名設定で一致させてください。ExtensionのProfileにもApp Groupと共有Keychain groupが必要です。作成された`PCFileBridge-AltStore-IPA` Artifactをダウンロードし、AltStoreでインストールします。Development ProfileにはiPhoneのUDIDを登録してください。
+Workflow実行後に`PCFileBridge-AltStore-Unsigned-IPA` Artifactをダウンロードし、AltStoreでインストールしてください。AltStoreがApple IDを使って再署名するため、Apple Development証明書をGitHubへ登録する必要はありません。無料のApple IDには署名可能なアプリ数や利用可能な権限の制約があります。File Provider extensionが使うApp Group権限をAltStoreのチームが許可できない場合、「ファイル」アプリへの追加やアプリ間共有が動作しません。
 
 指定されたStudyQuiz IPAと同じアプリBundle ID (`com.studyquiz.dailyquiz`) を使っています。このIDでAltStoreからインストールすると、端末上のStudyQuizアプリを置き換えます。別アプリとして併存させる場合は、Apple Developer側で別のApp IDを用意し、`IOS_APP_BUNDLE_ID`と関連設定を変更してください。
 
