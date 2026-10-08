@@ -1,0 +1,130 @@
+name: Build PC File Bridge
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  windows-server:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+      - name: Publish Windows single-file app
+        run: dotnet publish windows/PCFileBridge.Windows/PCFileBridge.Windows.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true -o artifacts/windows
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCFileBridge-Windows-x64
+          path: artifacts/windows/PCFileBridge.Windows.exe
+
+  ios:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate Xcode project
+        working-directory: ios
+        run: xcodegen generate --spec project.yml
+      - name: Build app and File Provider extension for iOS Simulator
+        working-directory: ios
+        run: xcodebuild -project PCFileBridge.xcodeproj -scheme PCFileBridge -configuration Debug -destination 'generic/platform=iOS Simulator' -derivedDataPath ../artifacts/ios CODE_SIGNING_ALLOWED=NO
+      - uses: actions/upload-artifact@v4
+        with:
+          name: PCFileBridge-iOS-Simulator-Build
+          path: artifacts/ios/Build/Products/Debug-iphonesimulator/PCFileBridge.app
+      - name: Check whether signing secrets are configured
+        id: signing-check
+        shell: bash
+        env:
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          APP_PROFILE: ${{ secrets.IOS_APP_PROVISIONING_PROFILE_BASE64 }}
+          EXTENSION_PROFILE: ${{ secrets.IOS_EXTENSION_PROVISIONING_PROFILE_BASE64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          KEYCHAIN_GROUP: ${{ secrets.IOS_KEYCHAIN_GROUP }}
+          APP_PROFILE_NAME: ${{ secrets.IOS_APP_PROFILE_NAME }}
+          EXTENSION_PROFILE_NAME: ${{ secrets.IOS_EXTENSION_PROFILE_NAME }}
+        run: |
+          if [[ -n "$CERTIFICATE" && -n "$APP_PROFILE" && -n "$EXTENSION_PROFILE" && -n "$TEAM_ID" && -n "$KEYCHAIN_GROUP" && -n "$APP_PROFILE_NAME" && -n "$EXTENSION_PROFILE_NAME" ]]; then
+            echo "available=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "available=false" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Install signing certificate and provisioning profiles
+        if: steps.signing-check.outputs.available == 'true'
+        shell: bash
+        env:
+          CERTIFICATE: ${{ secrets.IOS_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.IOS_CERTIFICATE_PASSWORD }}
+          APP_PROFILE: ${{ secrets.IOS_APP_PROVISIONING_PROFILE_BASE64 }}
+          EXTENSION_PROFILE: ${{ secrets.IOS_EXTENSION_PROVISIONING_PROFILE_BASE64 }}
+        run: |
+          set -euo pipefail
+          KEYCHAIN_PATH="$RUNNER_TEMP/pcfb-signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(openssl rand -hex 24)"
+          echo "$CERTIFICATE" | base64 --decode > "$RUNNER_TEMP/ios-signing.p12"
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN_PATH"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          security default-keychain -d user -s "$KEYCHAIN_PATH"
+          security list-keychains -d user -s "$KEYCHAIN_PATH"
+          security import "$RUNNER_TEMP/ios-signing.p12" -P "$CERTIFICATE_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN_PATH"
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN_PATH"
+          mkdir -p "$HOME/Library/MobileDevice/Provisioning Profiles"
+          for KIND in app extension; do
+            if [[ "$KIND" == app ]]; then PROFILE="$APP_PROFILE"; else PROFILE="$EXTENSION_PROFILE"; fi
+            echo "$PROFILE" | base64 --decode > "$RUNNER_TEMP/$KIND.mobileprovision"
+            security cms -D -i "$RUNNER_TEMP/$KIND.mobileprovision" > "$RUNNER_TEMP/$KIND-profile.plist"
+            UUID=$(/usr/libexec/PlistBuddy -c 'Print UUID' "$RUNNER_TEMP/$KIND-profile.plist")
+            cp "$RUNNER_TEMP/$KIND.mobileprovision" "$HOME/Library/MobileDevice/Provisioning Profiles/$UUID.mobileprovision"
+          done
+      - name: Archive signed iPhone app
+        if: steps.signing-check.outputs.available == 'true'
+        working-directory: ios
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APP_BUNDLE_ID: ${{ secrets.IOS_APP_BUNDLE_ID || 'com.studyquiz.dailyquiz' }}
+          EXTENSION_BUNDLE_ID: ${{ secrets.IOS_EXTENSION_BUNDLE_ID || 'com.studyquiz.dailyquiz.FileProvider' }}
+          APP_GROUP: ${{ secrets.IOS_APP_GROUP || 'group.com.studyquiz.dailyquiz' }}
+          KEYCHAIN_GROUP: ${{ secrets.IOS_KEYCHAIN_GROUP }}
+          APP_PROFILE_NAME: ${{ secrets.IOS_APP_PROFILE_NAME }}
+          EXTENSION_PROFILE_NAME: ${{ secrets.IOS_EXTENSION_PROFILE_NAME }}
+        run: |
+          xcodebuild archive -project PCFileBridge.xcodeproj -scheme PCFileBridge -configuration Release -destination 'generic/platform=iOS' -archivePath ../artifacts/PCFileBridge.xcarchive -derivedDataPath ../artifacts/ios-signed CODE_SIGNING_ALLOWED=YES CODE_SIGN_IDENTITY='Apple Development' CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM="$IOS_TEAM_ID" APP_BUNDLE_ID="$APP_BUNDLE_ID" EXTENSION_BUNDLE_ID="$EXTENSION_BUNDLE_ID" APP_GROUP="$APP_GROUP" KEYCHAIN_GROUP="$KEYCHAIN_GROUP" APP_PROFILE_NAME="$APP_PROFILE_NAME" EXTENSION_PROFILE_NAME="$EXTENSION_PROFILE_NAME"
+      - name: Export IPA for AltStore
+        if: steps.signing-check.outputs.available == 'true'
+        working-directory: ios
+        env:
+          IOS_TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+          APP_BUNDLE_ID: ${{ secrets.IOS_APP_BUNDLE_ID || 'com.studyquiz.dailyquiz' }}
+          EXTENSION_BUNDLE_ID: ${{ secrets.IOS_EXTENSION_BUNDLE_ID || 'com.studyquiz.dailyquiz.FileProvider' }}
+          APP_PROFILE_NAME: ${{ secrets.IOS_APP_PROFILE_NAME }}
+          EXTENSION_PROFILE_NAME: ${{ secrets.IOS_EXTENSION_PROFILE_NAME }}
+        run: |
+          python3 - <<'PY'
+          import os, plistlib
+          options = {
+            "method": "development",
+            "signingStyle": "manual",
+            "teamID": os.environ["IOS_TEAM_ID"],
+            "provisioningProfiles": {
+              os.environ["APP_BUNDLE_ID"]: os.environ["APP_PROFILE_NAME"],
+              os.environ["EXTENSION_BUNDLE_ID"]: os.environ["EXTENSION_PROFILE_NAME"],
+            },
+          }
+          with open("../artifacts/ExportOptions.plist", "wb") as f:
+            plistlib.dump(options, f)
+          PY
+          xcodebuild -exportArchive -archivePath ../artifacts/PCFileBridge.xcarchive -exportPath ../artifacts/ipa -exportOptionsPlist ../artifacts/ExportOptions.plist
+      - uses: actions/upload-artifact@v4
+        if: steps.signing-check.outputs.available == 'true'
+        with:
+          name: PCFileBridge-AltStore-IPA
+          path: artifacts/ipa/*.ipa

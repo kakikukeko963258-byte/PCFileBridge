@@ -1,0 +1,7 @@
+**/bin/
+**/obj/
+ios/PCFileBridge.xcodeproj/
+ios/build/
+artifacts/
+*.xcuserstate
+DerivedData/

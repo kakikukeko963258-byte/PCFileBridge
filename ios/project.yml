@@ -1,0 +1,51 @@
+name: PCFileBridge
+options:
+  minimumXcodeGenVersion: 2.40.0
+  deploymentTarget:
+    iOS: "16.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+    IPHONEOS_DEPLOYMENT_TARGET: "16.0"
+    DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
+    APP_GROUP: "group.com.studyquiz.dailyquiz"
+    KEYCHAIN_GROUP: "$(AppIdentifierPrefix)com.studyquiz.dailyquiz.shared"
+    APP_BUNDLE_ID: "com.studyquiz.dailyquiz"
+    EXTENSION_BUNDLE_ID: "com.studyquiz.dailyquiz.FileProvider"
+targets:
+  PCFileBridge:
+    type: application
+    platform: iOS
+    sources:
+      - path: PCFileBridge
+      - path: Shared
+    dependencies:
+      - target: FileProviderExtension
+        embed: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(APP_BUNDLE_ID)"
+        PRODUCT_NAME: PCFileBridge
+        INFOPLIST_FILE: PCFileBridge/Info.plist
+        CODE_SIGN_ENTITLEMENTS: PCFileBridge/PCFileBridge.entitlements
+        CODE_SIGN_STYLE: Manual
+        PROVISIONING_PROFILE_SPECIFIER: "$(APP_PROFILE_NAME)"
+        TARGETED_DEVICE_FAMILY: "1"
+        GENERATE_INFOPLIST_FILE: NO
+  FileProviderExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: FileProviderExtension
+      - path: Shared
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: "$(EXTENSION_BUNDLE_ID)"
+        PRODUCT_NAME: PCFileBridgeFileProvider
+        INFOPLIST_FILE: FileProviderExtension/Info.plist
+        CODE_SIGN_ENTITLEMENTS: FileProviderExtension/FileProviderExtension.entitlements
+        CODE_SIGN_STYLE: Manual
+        PROVISIONING_PROFILE_SPECIFIER: "$(EXTENSION_PROFILE_NAME)"
+        APPLICATION_EXTENSION_API_ONLY: YES
+        SKIP_INSTALL: YES
+        GENERATE_INFOPLIST_FILE: NO

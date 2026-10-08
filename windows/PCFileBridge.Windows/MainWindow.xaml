@@ -1,0 +1,28 @@
+<Window x:Class="PCFileBridge.Windows.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="PC File Bridge" Height="620" Width="760" MinHeight="520" MinWidth="640"
+        Background="#F5F7FA">
+  <Grid Margin="24">
+    <Grid.RowDefinitions><RowDefinition Height="Auto"/><RowDefinition Height="Auto"/><RowDefinition Height="*"/><RowDefinition Height="Auto"/></Grid.RowDefinitions>
+    <Border Grid.Row="0" Background="White" CornerRadius="12" Padding="20" BorderBrush="#E1E6ED" BorderThickness="1">
+      <Grid><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+        <StackPanel><TextBlock Text="PC File Bridge" FontSize="23" FontWeight="SemiBold"/><TextBlock x:Name="StatusText" Text="サーバー起動中" Foreground="#27814A" Margin="0,7,0,0"/></StackPanel>
+        <StackPanel Grid.Column="1" HorizontalAlignment="Right"><TextBlock x:Name="ComputerText"/><TextBlock x:Name="AddressText" Margin="0,5,0,0"/></StackPanel>
+      </Grid>
+    </Border>
+    <Grid Grid.Row="1" Margin="0,18,0,14"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <TextBlock Text="iPhoneに公開するフォルダー" FontSize="16" FontWeight="SemiBold" VerticalAlignment="Center"/>
+      <Button Grid.Column="1" Content="フォルダーを追加" Padding="14,8" Click="AddFolder_Click"/>
+    </Grid>
+    <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="10" BorderBrush="#E1E6ED" BorderThickness="1">
+      <DockPanel><Button DockPanel.Dock="Bottom" Content="選択したフォルダーを削除" HorizontalAlignment="Right" Margin="0,10,0,0" Padding="12,7" Click="RemoveFolder_Click"/>
+        <ListBox x:Name="RootsList" BorderThickness="0" FontSize="14" DisplayMemberPath="DisplayLabel"/>
+      </DockPanel>
+    </Border>
+    <Grid Grid.Row="3" Margin="0,15,0,0"><Grid.ColumnDefinitions><ColumnDefinition/><ColumnDefinition Width="Auto"/></Grid.ColumnDefinitions>
+      <StackPanel><TextBlock Text="ペアリングコード" FontWeight="SemiBold"/><TextBlock x:Name="PairingCodeText" Text="------" FontSize="28" FontWeight="Bold" Margin="0,3,0,0"/><TextBlock Text="コードは10分で期限切れになります。iPhoneアプリで入力してください。" Foreground="#667085" FontSize="12"/></StackPanel>
+      <StackPanel Grid.Column="1" HorizontalAlignment="Right"><TextBlock Text="接続中の端末" FontWeight="SemiBold"/><TextBlock x:Name="DevicesText" Text="まだ接続されていません" Margin="0,8,0,0" TextWrapping="Wrap" MaxWidth="260"/></StackPanel>
+    </Grid>
+  </Grid>
+</Window>
