@@ -31,7 +31,7 @@ final class ChangeMonitor: ObservableObject {
             let client = BridgeClient(server: server, token: try KeychainTokenStore.load(for: server.id))
             let previous = UserDefaults.standard.object(forKey: anchorKey) as? Int64
             let page = try await client.changes(parentId: nil, after: previous ?? 0)
-            guard let previous else {
+            if previous == nil {
                 UserDefaults.standard.set(page.latestSequence, forKey: anchorKey)
                 return
             }
@@ -64,7 +64,7 @@ final class ChangeMonitor: ObservableObject {
         try await withCheckedThrowingContinuation { continuation in
             NSFileProviderManager.getDomainsWithCompletionHandler { domains, error in
                 if let error { continuation.resume(throwing: error) }
-                else { continuation.resume(returning: domains ?? []) }
+                else { continuation.resume(returning: domains) }
             }
         }
     }

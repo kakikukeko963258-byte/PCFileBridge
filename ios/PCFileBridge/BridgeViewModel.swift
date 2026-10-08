@@ -65,7 +65,7 @@ final class BridgeViewModel: ObservableObject {
         try await withCheckedThrowingContinuation { continuation in
             NSFileProviderManager.getDomainsWithCompletionHandler { domains, error in
                 if let error { continuation.resume(throwing: error) }
-                else { continuation.resume(returning: domains ?? []) }
+                else { continuation.resume(returning: domains) }
             }
         }
     }

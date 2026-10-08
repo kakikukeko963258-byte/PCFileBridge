@@ -70,7 +70,7 @@ final class PCDiscovery: ObservableObject {
         connection.start(queue: .main)
     }
 
-    private static func httpAddress(for endpoint: NWEndpoint) -> String? {
+    nonisolated private static func httpAddress(for endpoint: NWEndpoint) -> String? {
         guard case let .hostPort(host, port) = endpoint else { return nil }
         let hostText: String
         switch host {
