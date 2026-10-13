@@ -1,5 +1,4 @@
 using System.Net;
-using System.Net.NetworkInformation;
 using System.Net.Sockets;
 using System.Text;
 
@@ -21,8 +20,8 @@ public sealed class MdnsAdvertiser(int port, string computerName)
             _udp.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
             _udp.Client.Bind(new IPEndPoint(IPAddress.Any, 5353));
             _udp.Ttl = 255;
-            foreach (var address in NetworkInterface.GetAllNetworkInterfaces().Where(n => n.OperationalStatus == OperationalStatus.Up).SelectMany(n => n.GetIPProperties().UnicastAddresses).Where(a => a.Address.AddressFamily == AddressFamily.InterNetwork))
-                try { _udp.JoinMulticastGroup(IPAddress.Parse("224.0.0.251"), address.Address); } catch { }
+            foreach (var address in LanAddressProvider.GetIPv4Addresses())
+                try { _udp.JoinMulticastGroup(IPAddress.Parse("224.0.0.251"), address); } catch { }
             _stop = new CancellationTokenSource(); _loop = RunAsync(_stop.Token);
         }
         catch { _udp?.Dispose(); _udp = null; }
@@ -48,7 +47,7 @@ public sealed class MdnsAdvertiser(int port, string computerName)
     {
         var host = string.Concat(computerName.Trim().Select(c => char.IsLetterOrDigit(c) || c == '-' ? c : '-')).Trim('-') + ".local";
         var instance = computerName.Replace('.', '-') + "." + Service;
-        var addresses = NetworkInterface.GetAllNetworkInterfaces().Where(n => n.OperationalStatus == OperationalStatus.Up).SelectMany(n => n.GetIPProperties().UnicastAddresses).Select(a => a.Address).Where(a => a.AddressFamily == AddressFamily.InterNetwork && !IPAddress.IsLoopback(a)).Distinct().ToArray();
+        var addresses = LanAddressProvider.GetIPv4Addresses();
         using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
         writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0x84); writer.Write((byte)0); // response + authoritative
         writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)(3 + addresses.Length)); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0);

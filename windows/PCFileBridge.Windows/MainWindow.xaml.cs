@@ -1,6 +1,4 @@
 using System.Collections.ObjectModel;
-using System.Net.NetworkInformation;
-using System.Net.Sockets;
 using System.Windows;
 using System.Windows.Threading;
 using Forms = System.Windows.Forms;
@@ -53,9 +51,6 @@ public partial class MainWindow : Window
 
     private static string GetLanAddress()
     {
-        foreach (var ni in NetworkInterface.GetAllNetworkInterfaces().Where(n => n.OperationalStatus == OperationalStatus.Up))
-        foreach (var address in ni.GetIPProperties().UnicastAddresses)
-            if (address.Address.AddressFamily == AddressFamily.InterNetwork && !System.Net.IPAddress.IsLoopback(address.Address)) return address.Address.ToString();
-        return "127.0.0.1";
+        return LanAddressProvider.GetIPv4Addresses().FirstOrDefault()?.ToString() ?? "IPv4のLAN接続が見つかりません";
     }
 }
