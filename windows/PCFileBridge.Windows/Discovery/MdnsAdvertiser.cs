@@ -50,7 +50,7 @@ public sealed class MdnsAdvertiser(int port, string computerName)
         var addresses = LanAddressProvider.GetIPv4Addresses();
         using var stream = new MemoryStream(); using var writer = new BinaryWriter(stream);
         writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0x84); writer.Write((byte)0); // response + authoritative
-        writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)(3 + addresses.Length)); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0);
+        writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)(3 + addresses.Count)); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0); writer.Write((byte)0);
         WriteRecord(writer, Service, 12, EncodeName(instance), cacheFlush: false);
         using (var srv = new MemoryStream()) using (var sw = new BinaryWriter(srv)) { sw.Write((ushort)0); sw.Write((ushort)0); sw.Write((ushort)IPAddress.HostToNetworkOrder((short)port)); sw.Write(EncodeName(host)); WriteRecord(writer, instance, 33, srv.ToArray()); }
         var label = Encoding.UTF8.GetBytes("v=1"); using (var txt = new MemoryStream()) { txt.WriteByte((byte)label.Length); txt.Write(label); WriteRecord(writer, instance, 16, txt.ToArray()); }

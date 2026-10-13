@@ -48,9 +48,8 @@ final class PCDiscovery: ObservableObject {
 
     private func resolve(key: String, name: String, endpoint: NWEndpoint) {
         let parameters = NWParameters.tcp
-        let ipOptions = NWProtocolIP.Options()
+        guard let ipOptions = parameters.defaultProtocolStack.internetProtocol as? NWProtocolIP.Options else { return }
         ipOptions.version = .v4
-        parameters.defaultProtocolStack.internetProtocol = ipOptions
         let connection = NWConnection(to: endpoint, using: parameters)
         resolvers[key] = connection
         connection.stateUpdateHandler = { [weak self, weak connection] state in
