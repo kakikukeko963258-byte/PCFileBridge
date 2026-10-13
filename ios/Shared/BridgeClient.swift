@@ -39,7 +39,12 @@ struct BridgeClient {
     }
 
     static func normalize(_ address: String) -> String {
-        let value = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let rawValue = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        let value = rawValue.replacingOccurrences(
+            of: #"((?:\d{1,3}\.){3}\d{1,3})%[A-Za-z0-9_.-]+"#,
+            with: "$1",
+            options: .regularExpression
+        )
         if value.hasPrefix("http://") || value.hasPrefix("https://") { return value.trimmingCharacters(in: CharacterSet(charactersIn: "/")) }
         return "http://\(value)"
     }

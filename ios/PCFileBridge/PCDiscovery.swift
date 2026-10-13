@@ -79,7 +79,13 @@ final class PCDiscovery: ObservableObject {
         switch host {
         case .ipv4(let address): hostText = "\(address)"
         case .ipv6(let address): hostText = "[\(address)]"
-        case .name(let name, _): hostText = name
+        case .name(let name, _):
+            let unscoped = name.split(separator: "%", maxSplits: 1, omittingEmptySubsequences: false).first.map(String.init) ?? name
+            if let address = IPv4Address(unscoped) {
+                hostText = String(describing: address)
+            } else {
+                hostText = name
+            }
         @unknown default: return nil
         }
         return "http://\(hostText):\(port.rawValue)"
