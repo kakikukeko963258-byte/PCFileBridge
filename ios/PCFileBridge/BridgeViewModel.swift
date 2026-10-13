@@ -22,10 +22,10 @@ final class BridgeViewModel: ObservableObject {
         do {
             let response = try await BridgeClient.pair(baseURL: address, code: pairingCode, deviceName: UIDevice.current.name)
             let server = SavedServer(id: UUID().uuidString.lowercased(), name: response.serverName, baseURL: BridgeClient.normalize(address), deviceId: response.deviceId, addedAt: Date())
-            try TokenStore.save(response.token, for: server.id)
+            try SharedTokenStore.save(response.token, for: server.id)
             servers.insert(server, at: 0)
             try SharedConfiguration.saveServers(servers)
-            try await addDomain(for: server, token: response.token)
+            try await addDomain(for: server)
             address = ""; pairingCode = ""
             message = "\(server.name)をペアリングし、Filesに追加しました。"
         } catch { self.error = error.localizedDescription }
@@ -35,7 +35,7 @@ final class BridgeViewModel: ObservableObject {
         isWorking = true; error = nil; message = nil
         defer { isWorking = false }
         do {
-            let client = BridgeClient(server: server, token: try TokenStore.load(for: server.id))
+            let client = BridgeClient(server: server, token: try SharedTokenStore.load(for: server.id))
             message = "\(server.name): \(try await client.health())"
         } catch { self.error = error.localizedDescription }
     }
@@ -47,18 +47,17 @@ final class BridgeViewModel: ObservableObject {
             let currentDomains = try await Self.domains()
             let domain = currentDomains.first { $0.identifier.rawValue == server.id }
             if let domain { try await NSFileProviderManager.remove(domain) }
-            TokenStore.delete(for: server.id)
+            SharedTokenStore.delete(for: server.id)
             servers.removeAll { $0.id == server.id }
             try SharedConfiguration.saveServers(servers)
             message = "\(server.name)を削除しました。"
         } catch { self.error = error.localizedDescription }
     }
 
-    private func addDomain(for server: SavedServer, token: String) async throws {
+    private func addDomain(for server: SavedServer) async throws {
         let current = try await Self.domains()
         if current.contains(where: { $0.identifier.rawValue == server.id }) { return }
         let domain = NSFileProviderDomain(identifier: NSFileProviderDomainIdentifier(rawValue: server.id), displayName: server.name)
-        domain.userInfo = ProviderConfiguration.userInfo(for: server, token: token)
         try await NSFileProviderManager.add(domain)
     }
 

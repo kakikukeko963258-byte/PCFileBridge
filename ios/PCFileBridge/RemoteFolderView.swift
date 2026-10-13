@@ -46,7 +46,7 @@ struct RemoteFolderView: View {
         isLoading = true
         defer { isLoading = false }
         do {
-            let client = BridgeClient(server: server, token: try TokenStore.load(for: server.id))
+            let client = BridgeClient(server: server, token: try SharedTokenStore.load(for: server.id))
             let page = try await client.items(parentId: parentId, continuationToken: nextPage)
             items.append(contentsOf: page.items)
             nextPage = page.next ?? ""

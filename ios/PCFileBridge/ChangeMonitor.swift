@@ -28,7 +28,7 @@ final class ChangeMonitor: ObservableObject {
     private func poll(_ server: SavedServer) async {
         let anchorKey = "PCFileBridge.changeAnchor.\(server.id)"
         do {
-            let client = BridgeClient(server: server, token: try TokenStore.load(for: server.id))
+            let client = BridgeClient(server: server, token: try SharedTokenStore.load(for: server.id))
             let previous = UserDefaults.standard.object(forKey: anchorKey) as? Int64
             let page = try await client.changes(parentId: nil, after: previous ?? 0)
             if previous == nil {
