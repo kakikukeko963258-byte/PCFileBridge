@@ -1,4 +1,5 @@
 import Foundation
+import FileProvider
 
 struct BridgeItem: Codable, Identifiable, Hashable {
     let id: String
@@ -58,6 +59,29 @@ struct SavedServer: Codable, Identifiable, Hashable {
     var addedAt: Date
 }
 
-enum BridgeConstants {
-    static var appGroup: String { Bundle.main.object(forInfoDictionaryKey: "PCFileBridgeAppGroup") as? String ?? "group.com.studyquiz.dailyquiz" }
+enum ProviderConfiguration {
+    static func userInfo(for server: SavedServer, token: String) -> [AnyHashable: Any] {
+        [
+            "serverID": server.id,
+            "serverName": server.name,
+            "baseURL": server.baseURL,
+            "deviceID": server.deviceId,
+            "token": token
+        ]
+    }
+
+    static func client(for domain: NSFileProviderDomain) throws -> BridgeClient {
+        guard let userInfo = domain.userInfo,
+              let serverID = userInfo["serverID"] as? String,
+              serverID == domain.identifier.rawValue,
+              let serverName = userInfo["serverName"] as? String,
+              let baseURL = userInfo["baseURL"] as? String,
+              let deviceID = userInfo["deviceID"] as? String,
+              let token = userInfo["token"] as? String else {
+            throw BridgeError.providerConfigurationUnavailable
+        }
+
+        let server = SavedServer(id: serverID, name: serverName, baseURL: baseURL, deviceId: deviceID, addedAt: Date())
+        return BridgeClient(server: server, token: token)
+    }
 }

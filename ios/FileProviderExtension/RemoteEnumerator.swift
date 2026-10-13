@@ -123,7 +123,6 @@ final class RemoteEnumerator: NSObject, NSFileProviderEnumerator {
     func invalidate() {}
 
     private func makeClient() throws -> BridgeClient {
-        guard let server = SharedConfiguration.server(forDomain: domain.identifier.rawValue) else { throw BridgeError.sharedContainerUnavailable }
-        return BridgeClient(server: server, token: try SharedTokenStore.load(for: server.id))
+        try ProviderConfiguration.client(for: domain)
     }
 }

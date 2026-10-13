@@ -8,14 +8,12 @@
   <key>CFBundlePackageType</key><string>XPC!</string>
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundleVersion</key><string>1</string>
-  <key>PCFileBridgeAppGroup</key><string>$(APP_GROUP)</string>
   <key>NSLocalNetworkUsageDescription</key><string>同じネットワーク上のPC File Bridgeサーバーへ接続します。</string>
   <key>NSBonjourServices</key><array><string>_pcfilebridge._tcp</string></array>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
   <key>NSExtension</key><dict>
     <key>NSExtensionPointIdentifier</key><string>com.apple.fileprovider-nonui</string>
     <key>NSExtensionPrincipalClass</key><string>$(PRODUCT_MODULE_NAME).FileProviderExtension</string>
-    <key>NSExtensionFileProviderDocumentGroup</key><string>$(APP_GROUP)</string>
     <key>NSExtensionFileProviderSupportsEnumeration</key><true/>
   </dict>
 </dict></plist>
