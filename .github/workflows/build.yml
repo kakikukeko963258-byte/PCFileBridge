@@ -49,6 +49,16 @@ jobs:
           set -euo pipefail
           APP_PATH="artifacts/ios-device/Build/Products/Release-iphoneos/PCFileBridge.app"
           test -d "$APP_PATH"
+          APP_GROUP="group.com.studyquiz.dailyquiz"
+          cat > "$RUNNER_TEMP/app-group.entitlements" <<EOF
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict>
+            <key>com.apple.security.application-groups</key><array><string>${APP_GROUP}</string></array>
+          </dict></plist>
+          EOF
+          /usr/bin/codesign --force --sign - --entitlements "$RUNNER_TEMP/app-group.entitlements" "$APP_PATH/PlugIns/PCFileBridgeFileProvider.appex"
+          /usr/bin/codesign --force --sign - --entitlements "$RUNNER_TEMP/app-group.entitlements" "$APP_PATH"
           mkdir -p artifacts/ipa/Payload
           /usr/bin/ditto "$APP_PATH" artifacts/ipa/Payload/PCFileBridge.app
           (cd artifacts/ipa && /usr/bin/zip -qry ../PCFileBridge-AltStore-Unsigned.ipa Payload)
