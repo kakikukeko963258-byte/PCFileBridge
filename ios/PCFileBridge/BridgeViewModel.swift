@@ -22,7 +22,7 @@ final class BridgeViewModel: ObservableObject {
         do {
             let response = try await BridgeClient.pair(baseURL: address, code: pairingCode, deviceName: UIDevice.current.name)
             let server = SavedServer(id: UUID().uuidString.lowercased(), name: response.serverName, baseURL: BridgeClient.normalize(address), deviceId: response.deviceId, addedAt: Date())
-            try KeychainTokenStore.save(response.token, for: server.id)
+            try SharedTokenStore.save(response.token, for: server.id)
             servers.insert(server, at: 0)
             try SharedConfiguration.saveServers(servers)
             try await addDomain(for: server)
@@ -35,7 +35,7 @@ final class BridgeViewModel: ObservableObject {
         isWorking = true; error = nil; message = nil
         defer { isWorking = false }
         do {
-            let client = BridgeClient(server: server, token: try KeychainTokenStore.load(for: server.id))
+            let client = BridgeClient(server: server, token: try SharedTokenStore.load(for: server.id))
             message = "\(server.name): \(try await client.health())"
         } catch { self.error = error.localizedDescription }
     }
@@ -47,7 +47,7 @@ final class BridgeViewModel: ObservableObject {
             let currentDomains = try await Self.domains()
             let domain = currentDomains.first { $0.identifier.rawValue == server.id }
             if let domain { try await NSFileProviderManager.remove(domain) }
-            KeychainTokenStore.delete(for: server.id)
+            SharedTokenStore.delete(for: server.id)
             servers.removeAll { $0.id == server.id }
             try SharedConfiguration.saveServers(servers)
             message = "\(server.name)を削除しました。"

@@ -1,5 +1,4 @@
 import Foundation
-import Security
 
 enum SharedConfiguration {
     private static var container: URL? { FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: BridgeConstants.appGroup) }
@@ -41,44 +40,44 @@ enum MaterializedItemStore {
     }
 }
 
-enum KeychainTokenStore {
-    private static var sharedAccessGroup: String? {
-        Bundle.main.object(forInfoDictionaryKey: "PCFileBridgeKeychainGroup") as? String
+enum SharedTokenStore {
+    private static let lock = NSLock()
+    private static var tokensFile: URL? {
+        FileManager.default.containerURL(forSecurityApplicationGroupIdentifier: BridgeConstants.appGroup)?.appendingPathComponent("tokens.json")
     }
 
     static func save(_ token: String, for serverId: String) throws {
-        let data = Data(token.utf8)
-        var base: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                  kSecAttrService as String: BridgeConstants.tokenService,
-                                  kSecAttrAccount as String: serverId]
-        if let group = sharedAccessGroup { base[kSecAttrAccessGroup as String] = group }
-        SecItemDelete(base as CFDictionary)
-        var query = base
-        query[kSecValueData as String] = data
-        query[kSecAttrAccessible as String] = kSecAttrAccessibleAfterFirstUnlock
-        let status = SecItemAdd(query as CFDictionary, nil)
-        guard status == errSecSuccess else { throw BridgeError.keychain(status) }
+        lock.lock(); defer { lock.unlock() }
+        guard let file = tokensFile else { throw BridgeError.sharedContainerUnavailable }
+        var tokens = readTokens(from: file)
+        tokens[serverId] = token
+        try writeTokens(tokens, to: file)
     }
 
     static func load(for serverId: String) throws -> String {
-        var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                   kSecAttrService as String: BridgeConstants.tokenService,
-                                   kSecAttrAccount as String: serverId,
-                                   kSecReturnData as String: true,
-                                   kSecMatchLimit as String: kSecMatchLimitOne]
-        if let group = sharedAccessGroup { query[kSecAttrAccessGroup as String] = group }
-        var result: CFTypeRef?
-        let status = SecItemCopyMatching(query as CFDictionary, &result)
-        guard status == errSecSuccess, let data = result as? Data, let token = String(data: data, encoding: .utf8) else { throw BridgeError.keychain(status) }
+        lock.lock(); defer { lock.unlock() }
+        guard let file = tokensFile else { throw BridgeError.sharedContainerUnavailable }
+        guard let token = readTokens(from: file)[serverId] else { throw BridgeError.tokenNotFound }
         return token
     }
 
     static func delete(for serverId: String) {
-        var query: [String: Any] = [kSecClass as String: kSecClassGenericPassword,
-                                   kSecAttrService as String: BridgeConstants.tokenService,
-                                   kSecAttrAccount as String: serverId]
-        if let group = sharedAccessGroup { query[kSecAttrAccessGroup as String] = group }
-        SecItemDelete(query as CFDictionary)
+        lock.lock(); defer { lock.unlock() }
+        guard let file = tokensFile else { return }
+        var tokens = readTokens(from: file)
+        tokens.removeValue(forKey: serverId)
+        try? writeTokens(tokens, to: file)
+    }
+
+    private static func readTokens(from file: URL) -> [String: String] {
+        guard let data = try? Data(contentsOf: file),
+              let tokens = try? JSONDecoder().decode([String: String].self, from: data) else { return [:] }
+        return tokens
+    }
+
+    private static func writeTokens(_ tokens: [String: String], to file: URL) throws {
+        let data = try JSONEncoder().encode(tokens)
+        try data.write(to: file, options: [.atomic, .completeFileProtectionUntilFirstUserAuthentication])
     }
 }
 
@@ -87,7 +86,7 @@ enum BridgeError: LocalizedError {
     case invalidServerAddress
     case invalidResponse
     case http(Int, String)
-    case keychain(OSStatus)
+    case tokenNotFound
 
     var errorDescription: String? {
         switch self {
@@ -95,7 +94,7 @@ enum BridgeError: LocalizedError {
         case .invalidServerAddress: return "サーバーアドレスを確認してください。"
         case .invalidResponse: return "サーバーからの応答を読み取れませんでした。"
         case .http(let code, let message): return "サーバーエラー (\(code): \(message))"
-        case .keychain(let status): return "Keychainエラー (\(status))"
+        case .tokenNotFound: return "ペアリング情報が見つかりません。PCと再ペアリングしてください。"
         }
     }
 }

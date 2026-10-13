@@ -9,7 +9,6 @@
   <key>CFBundleShortVersionString</key><string>1.0</string>
   <key>CFBundleVersion</key><string>1</string>
   <key>PCFileBridgeAppGroup</key><string>$(APP_GROUP)</string>
-  <key>PCFileBridgeKeychainGroup</key><string>$(KEYCHAIN_GROUP)</string>
   <key>NSLocalNetworkUsageDescription</key><string>同じネットワーク上のPC File Bridgeサーバーへ接続します。</string>
   <key>NSBonjourServices</key><array><string>_pcfilebridge._tcp</string></array>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>

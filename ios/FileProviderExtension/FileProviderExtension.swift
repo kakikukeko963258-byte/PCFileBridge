@@ -113,7 +113,7 @@ final class FileProviderExtension: NSObject, NSFileProviderReplicatedExtension {
 
     private func makeClient() throws -> BridgeClient {
         guard let server = SharedConfiguration.server(forDomain: domain.identifier.rawValue) else { throw BridgeError.sharedContainerUnavailable }
-        return BridgeClient(server: server, token: try KeychainTokenStore.load(for: server.id))
+        return BridgeClient(server: server, token: try SharedTokenStore.load(for: server.id))
     }
 
     private func signalEnumerator(for parentId: String) {

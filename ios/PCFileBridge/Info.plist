@@ -13,7 +13,6 @@
   <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string></array>
   <key>NSLocalNetworkUsageDescription</key><string>同じネットワーク上のPC File Bridgeサーバーを検出して接続します。</string>
   <key>PCFileBridgeAppGroup</key><string>$(APP_GROUP)</string>
-  <key>PCFileBridgeKeychainGroup</key><string>$(KEYCHAIN_GROUP)</string>
   <key>NSBonjourServices</key><array><string>_pcfilebridge._tcp</string></array>
   <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
 </dict></plist>

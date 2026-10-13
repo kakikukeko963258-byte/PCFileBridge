@@ -60,5 +60,4 @@ struct SavedServer: Codable, Identifiable, Hashable {
 
 enum BridgeConstants {
     static var appGroup: String { Bundle.main.object(forInfoDictionaryKey: "PCFileBridgeAppGroup") as? String ?? "group.com.studyquiz.dailyquiz" }
-    static let tokenService = "PCFileBridge.token.v1"
 }

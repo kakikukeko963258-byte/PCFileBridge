@@ -9,7 +9,6 @@ settings:
     IPHONEOS_DEPLOYMENT_TARGET: "16.0"
     DEVELOPMENT_TEAM: "$(DEVELOPMENT_TEAM)"
     APP_GROUP: "group.com.studyquiz.dailyquiz"
-    KEYCHAIN_GROUP: "$(AppIdentifierPrefix)com.studyquiz.dailyquiz.shared"
     APP_BUNDLE_ID: "com.studyquiz.dailyquiz"
     EXTENSION_BUNDLE_ID: "com.studyquiz.dailyquiz.FileProvider"
 targets:
