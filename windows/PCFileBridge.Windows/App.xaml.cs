@@ -18,6 +18,8 @@ public partial class App : System.Windows.Application
         {
             AppRuntime.Server = await ServerHost.StartAsync();
             if (e.Args.Contains("--share-all-drives")) AppRuntime.Server.Store.AddAllDrives();
+            for (var i = 0; i < e.Args.Length; i++)
+                if (e.Args[i] == "--allow-write-folder" && i + 1 < e.Args.Length) AppRuntime.Server.Store.AllowWrites(e.Args[++i]);
             _ = LocalSetupBroker.ServeAsync(AppRuntime.Server, _setupCancellation.Token);
             MainWindow = new MainWindow();
             MainWindow.Show();

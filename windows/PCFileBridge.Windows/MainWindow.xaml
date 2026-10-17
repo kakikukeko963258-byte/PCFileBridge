@@ -16,7 +16,7 @@
       <StackPanel Grid.Column="1" Orientation="Horizontal"><Button Content="接続QRを表示" Padding="14,8" Margin="0,0,8,0" Click="ShowQR_Click"/><Button Content="全ドライブを表示" Padding="14,8" Margin="0,0,8,0" Click="AddAllDrives_Click"/><Button Content="フォルダーを追加" Padding="14,8" Click="AddFolder_Click"/></StackPanel>
     </Grid>
     <Border Grid.Row="2" Background="White" CornerRadius="12" Padding="10" BorderBrush="#E1E6ED" BorderThickness="1">
-      <DockPanel><Button DockPanel.Dock="Bottom" Content="選択したフォルダーを削除" HorizontalAlignment="Right" Margin="0,10,0,0" Padding="12,7" Click="RemoveFolder_Click"/>
+      <DockPanel><StackPanel DockPanel.Dock="Bottom" Margin="0,10,0,0"><TextBlock x:Name="WriteAccessText" TextWrapping="Wrap" Margin="0,0,0,8"/><WrapPanel><Button Content="書き込みフォルダーを追加" Padding="12,7" Margin="0,0,8,0" Click="AllowWrites_Click"/><Button Content="書き込み許可を解除" Padding="12,7" Margin="0,0,8,0" Click="ClearWrites_Click"/><Button Content="選択した共有を削除" Padding="12,7" Click="RemoveFolder_Click"/></WrapPanel></StackPanel>
         <ListBox x:Name="RootsList" BorderThickness="0" FontSize="14" DisplayMemberPath="DisplayLabel"/>
       </DockPanel>
     </Border>

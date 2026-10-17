@@ -12,6 +12,8 @@ public sealed class BridgeStore
     private readonly string _catalogFile;
     private readonly string _devicesFile;
     private readonly string _changesFile;
+    private readonly string _writeFoldersFile;
+    private readonly List<string> _writableFolders = [];
     private readonly JsonSerializerOptions _json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
     private List<SharedRoot> _roots;
     private Dictionary<string, BridgeItem> _items;
@@ -31,6 +33,13 @@ public sealed class BridgeStore
         Directory.CreateDirectory(_folder);
         _configFile = Path.Combine(_folder, "roots.json"); _catalogFile = Path.Combine(_folder, "catalog.json");
         _devicesFile = Path.Combine(_folder, "devices.json"); _changesFile = Path.Combine(_folder, "changes.json");
+        _writeFoldersFile = Path.Combine(_folder, "writable-folders.json");
+        foreach (var path in Load<List<string>>(_writeFoldersFile) ?? [])
+        {
+            try { if (Directory.Exists(path)) _writableFolders.Add(PhysicalPath(path)); }
+            catch (IOException) { }
+            catch (UnauthorizedAccessException) { }
+        }
         _roots = Load<List<SharedRoot>>(_configFile) ?? [];
         _items = (Load<List<BridgeItem>>(_catalogFile) ?? []).ToDictionary(i => i.Id, StringComparer.Ordinal);
         foreach (var item in _items.Values) _pathIds[PathKey(item.Path)] = item.Id;
@@ -53,6 +62,46 @@ public sealed class BridgeStore
         }
     }
     public IReadOnlyList<SharedRoot> GetRoots() { lock (_gate) return _roots.Select(Clone).ToArray(); }
+    public IReadOnlyList<string> GetWritableFolders() { lock (_gate) return _writableFolders.ToArray(); }
+
+    public void AllowWrites(string path)
+    {
+        if (!Directory.Exists(path)) throw new DirectoryNotFoundException("フォルダーが見つかりません。");
+        var full = PhysicalPath(path);
+        lock (_gate)
+        {
+            if (!_roots.Any(r => IsWithin(full, r.Path))) throw new InvalidOperationException("先にこのフォルダーを含むドライブを表示対象にしてください。");
+            if (_writableFolders.Any(p => IsWithin(full, p))) return;
+            _writableFolders.RemoveAll(p => IsWithin(p, full));
+            _writableFolders.Add(full);
+            Save(_writeFoldersFile, _writableFolders);
+            PermissionsChanged();
+        }
+    }
+
+    public void ClearWritePermissions()
+    {
+        lock (_gate)
+        {
+            _writableFolders.Clear();
+            Save(_writeFoldersFile, _writableFolders);
+            PermissionsChanged();
+        }
+    }
+
+    private void PermissionsChanged()
+    {
+        foreach (var item in _items.Values)
+        {
+            var root = _roots.FirstOrDefault(r => r.Id == item.RootId);
+            var readOnly = root is null || !CanWrite(item.Path, root);
+            if (item.ReadOnly == readOnly) continue;
+            item.ReadOnly = readOnly;
+            _changes.Add(new ChangeRecord(++_sequence, item.ParentId, item.Id, "updated"));
+        }
+        if (_changes.Count > 20000) _changes.RemoveRange(0, _changes.Count - 20000);
+        SaveCatalog(); SaveChanges();
+    }
     public void AddAllDrives()
     {
         foreach (var drive in DriveInfo.GetDrives())
@@ -202,9 +251,9 @@ public sealed class BridgeStore
         lock (_gate)
         {
             var parentPath = GetDestinationParent(request.ParentId, out var root, out var parentId);
-            EnsureWritable(root);
             var path = Path.Combine(parentPath, request.Name);
             EnsureAllowed(path, root);
+            EnsureWritable(path, root);
             if (File.Exists(path) || Directory.Exists(path)) throw new IOException("同じ名前の項目がすでにあります。");
             if (request.IsDirectory) Directory.CreateDirectory(path); else using (File.Create(path)) { }
             var item = UpsertPath(path, root.Id, parentId, null); Record(parentId, item.Id, "updated"); SaveCatalog();
@@ -217,14 +266,15 @@ public sealed class BridgeStore
         lock (_gate)
         {
             var item = Resolve(id); var root = _roots.Single(r => r.Id == item.RootId); EnsureAllowed(item.Path, root);
-            EnsureWritable(root);
+            EnsureWritable(item.Path, root);
             var oldParent = item.ParentId; var oldPath = item.Path;
             var targetParentPath = request.ParentId is null ? Path.GetDirectoryName(oldPath)! : GetDestinationParent(request.ParentId, out root, out var ignoredParentId);
             var targetParentId = request.ParentId ?? oldParent;
-            EnsureWritable(root);
             if (request.Name is not null) ValidateName(request.Name);
             var targetPath = Path.Combine(targetParentPath, request.Name ?? Path.GetFileName(oldPath));
             EnsureAllowed(targetPath, root);
+            EnsureWritable(targetPath, root);
+            if (!SamePath(oldPath, targetPath)) EnsurePermissionBoundaryUnchanged(oldPath);
             if (item.IsDirectory && IsWithin(targetParentPath, oldPath)) throw new InvalidOperationException("フォルダーを自分自身の中へ移動できません。");
             if (!SamePath(oldPath, targetPath) && (File.Exists(targetPath) || Directory.Exists(targetPath))) throw new IOException("移動先に同じ名前の項目があります。");
             if (!SamePath(oldPath, targetPath))
@@ -251,14 +301,13 @@ public sealed class BridgeStore
     public async Task UploadAsync(string id, Stream input, CancellationToken cancellationToken)
     {
         BridgeItem item; SharedRoot root;
-        lock (_gate) { item = Resolve(id); root = Clone(_roots.Single(r => r.Id == item.RootId)); EnsureAllowed(item.Path, root); EnsureWritable(root); if (item.IsDirectory) throw new InvalidOperationException("フォルダーへアップロードできません。"); }
+        lock (_gate) { item = Resolve(id); root = Clone(_roots.Single(r => r.Id == item.RootId)); EnsureAllowed(item.Path, root); EnsureWritable(item.Path, root); if (item.IsDirectory) throw new InvalidOperationException("フォルダーへアップロードできません。"); }
         var temp = Path.Combine(Path.GetDirectoryName(item.Path)!, ".pcfb-" + Guid.NewGuid().ToString("N") + ".upload");
         try
         {
             await using (var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 1024 * 1024, FileOptions.Asynchronous | FileOptions.SequentialScan))
                 await input.CopyToAsync(output, 1024 * 1024, cancellationToken);
-            File.Move(temp, item.Path, true);
-            lock (_gate) { RefreshMetadata(item); Record(item.ParentId, id, "updated"); SaveCatalog(); }
+            lock (_gate) { EnsureAllowed(item.Path, root); EnsureWritable(item.Path, root); File.Move(temp, item.Path, true); RefreshMetadata(item); Record(item.ParentId, id, "updated"); SaveCatalog(); }
         }
         finally { if (File.Exists(temp)) File.Delete(temp); }
     }
@@ -268,7 +317,8 @@ public sealed class BridgeStore
         lock (_gate)
         {
             var item = Resolve(id); var root = _roots.Single(r => r.Id == item.RootId); EnsureAllowed(item.Path, root);
-            EnsureWritable(root);
+            EnsureWritable(item.Path, root);
+            EnsurePermissionBoundaryUnchanged(item.Path);
             if (SamePath(item.Path, root.Path)) throw new UnauthorizedAccessException("公開元フォルダーそのものは削除できません。");
             if (item.IsDirectory) Directory.Delete(item.Path, true); else File.Delete(item.Path);
             var ids = _items.Values.Where(i => i.Id == id || IsWithin(i.Path, item.Path)).Select(i => i.Id).ToArray();
@@ -351,7 +401,8 @@ public sealed class BridgeStore
         if (!info.Exists && !SamePath(full, root?.Path ?? "")) throw new FileNotFoundException("項目が見つかりません。", full);
         var entry = existing ?? new BridgeItem { Id = "item-" + Guid.NewGuid().ToString("N"), ParentId = parentId, RootId = rootId, Name = "", Path = full, IsDirectory = isDirectory, Version = "" };
         entry.ParentId = parentId; entry.RootId = rootId; entry.Name = root?.Name ?? Path.GetFileName(full); entry.Path = full; entry.IsDirectory = isDirectory;
-        entry.ReadOnly = root?.ReadOnly ?? _roots.FirstOrDefault(r => r.Id == rootId)?.ReadOnly ?? false;
+        var owner = root ?? _roots.FirstOrDefault(r => r.Id == rootId);
+        entry.ReadOnly = owner is null || !CanWrite(full, owner);
         entry.Size = isDirectory ? 0 : new FileInfo(full).Length; entry.ModifiedUtc = info.Exists ? info.LastWriteTimeUtc : DateTime.UtcNow;
         entry.Version = $"{entry.ModifiedUtc.Ticks:x}-{entry.Size:x}";
         _items[entry.Id] = entry; _pathIds[PathKey(full)] = entry.Id; return entry;
@@ -376,7 +427,8 @@ public sealed class BridgeStore
 
     private void RefreshMetadata(BridgeItem item)
     {
-        item.ReadOnly = _roots.FirstOrDefault(r => r.Id == item.RootId)?.ReadOnly ?? false;
+        var root = _roots.FirstOrDefault(r => r.Id == item.RootId);
+        item.ReadOnly = root is null || !CanWrite(item.Path, root);
         var info = item.IsDirectory ? (FileSystemInfo)new DirectoryInfo(item.Path) : new FileInfo(item.Path);
         if (info.Exists) { item.ModifiedUtc = info.LastWriteTimeUtc; item.Size = item.IsDirectory ? 0 : new FileInfo(item.Path).Length; item.Version = $"{item.ModifiedUtc.Ticks:x}-{item.Size:x}"; }
     }
@@ -449,7 +501,43 @@ public sealed class BridgeStore
     private static string PathKey(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
     private static ItemDto ToDto(BridgeItem i) => new(i.Id, i.ParentId, i.Name, i.IsDirectory, i.Size, i.ModifiedUtc, i.Version, i.ReadOnly);
     private static BridgeItem Copy(BridgeItem i) => new() { Id = i.Id, ParentId = i.ParentId, RootId = i.RootId, Name = i.Name, Path = i.Path, IsDirectory = i.IsDirectory, Size = i.Size, ModifiedUtc = i.ModifiedUtc, Version = i.Version, ReadOnly = i.ReadOnly };
-    private static void EnsureWritable(SharedRoot root) { if (root.ReadOnly) throw new UnauthorizedAccessException("このドライブは読み取り専用です。"); }
+    private bool CanWrite(string path, SharedRoot root)
+    {
+        if (!root.ReadOnly) return true;
+        try
+        {
+            var physical = PhysicalPath(path);
+            return _writableFolders.Any(folder => IsWithin(path, folder) && IsWithin(physical, folder));
+        }
+        catch (IOException) { return false; }
+        catch (UnauthorizedAccessException) { return false; }
+    }
+    private void EnsureWritable(string path, SharedRoot root)
+    {
+        if (!CanWrite(path, root)) throw new UnauthorizedAccessException("この場所は読み取り専用です。PCで許可したフォルダーの中に保存してください。");
+    }
+    private void EnsurePermissionBoundaryUnchanged(string path)
+    {
+        if (_writableFolders.Any(folder => SamePath(path, folder))) throw new UnauthorizedAccessException("書き込み許可の起点フォルダー自体は移動・削除できません。");
+    }
+    private static string PhysicalPath(string path)
+    {
+        var full = Path.GetFullPath(path);
+        var root = Path.GetPathRoot(full) ?? throw new IOException("パスが正しくありません。");
+        var current = root;
+        foreach (var segment in full[root.Length..].Split([Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar], StringSplitOptions.RemoveEmptyEntries))
+        {
+            current = Path.Combine(current, segment);
+            FileAttributes attributes;
+            try { attributes = File.GetAttributes(current); }
+            catch (FileNotFoundException) { continue; }
+            catch (DirectoryNotFoundException) { continue; }
+            if ((attributes & FileAttributes.ReparsePoint) == 0) continue;
+            FileSystemInfo info = (attributes & FileAttributes.Directory) != 0 ? new DirectoryInfo(current) : new FileInfo(current);
+            current = info.ResolveLinkTarget(true)?.FullName ?? throw new IOException("リンク先を解決できません。");
+        }
+        return Path.TrimEndingDirectorySeparator(current);
+    }
     private static SharedRoot Clone(SharedRoot r) => new() { Id = r.Id, Name = r.Name, Path = r.Path, ReadOnly = r.ReadOnly };
     private T? Load<T>(string path) { try { return File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), _json) : default; } catch { return default; } }
     private void SaveRoots() => Save(_configFile, _roots);

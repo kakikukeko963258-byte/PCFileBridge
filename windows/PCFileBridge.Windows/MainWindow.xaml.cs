@@ -27,6 +27,8 @@ public partial class MainWindow : Window
     {
         RefreshAddresses();
         PairingCodeText.Text = AppRuntime.Server!.Store.PairingCode;
+        var writable = AppRuntime.Server.Store.GetWritableFolders();
+        WriteAccessText.Text = writable.Count == 0 ? "全ドライブは読み取り専用です。" : "書き込み可（配下を含む）: " + string.Join("、", writable);
         var devices = AppRuntime.Server.Store.GetDevices();
         DevicesText.Text = devices.Count == 0 ? "まだ接続されていません" : string.Join("\n", devices.Select(d => $"{d.Name}　最終アクセス: {d.LastAccessLocal}"));
     }
@@ -51,6 +53,19 @@ public partial class MainWindow : Window
     }
 
     private void ShowQR_Click(object sender, RoutedEventArgs e) => new ConnectionQRWindow(AppRuntime.Server!) { Owner = this }.Show();
+
+    private void AllowWrites_Click(object sender, RoutedEventArgs e)
+    {
+        using var dialog = new Forms.FolderBrowserDialog { Description = "書き込みを許可するフォルダーを選択してください（配下も含みます）", UseDescriptionForTitle = true, ShowNewFolderButton = false };
+        if (dialog.ShowDialog() != Forms.DialogResult.OK) return;
+        try { AppRuntime.Server!.Store.AllowWrites(dialog.SelectedPath); RefreshStatus(); }
+        catch (Exception ex) { System.Windows.MessageBox.Show(ex.Message, "書き込み許可を設定できませんでした"); }
+    }
+
+    private void ClearWrites_Click(object sender, RoutedEventArgs e)
+    {
+        AppRuntime.Server!.Store.ClearWritePermissions(); RefreshStatus();
+    }
 
     private void RemoveFolder_Click(object sender, RoutedEventArgs e)
     {
