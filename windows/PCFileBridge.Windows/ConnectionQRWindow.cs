@@ -21,7 +21,7 @@ internal sealed class ConnectionQRWindow : Window
         _server = server;
         Title = "iPhoneでQR接続"; Width = 500; Height = 660;
         ResizeMode = ResizeMode.NoResize; WindowStartupLocation = WindowStartupLocation.CenterOwner;
-        Background = Brushes.White;
+        Background = System.Windows.Media.Brushes.White;
         var panel = new StackPanel { Margin = new Thickness(24) };
         panel.Children.Add(new TextBlock { Text = "QRコードでPCに接続", FontSize = 24, FontWeight = FontWeights.SemiBold });
         panel.Children.Add(new TextBlock { Text = "iPhoneの main → 1 →「QRコードで接続」で読み取ってください。", TextWrapping = TextWrapping.Wrap, Margin = new Thickness(0, 12, 0, 0) });
