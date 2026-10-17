@@ -16,7 +16,7 @@ public partial class MainWindow : Window
         RootsList.ItemsSource = _roots;
         var runtime = AppRuntime.Server!;
         ComputerText.Text = $"PC名: {Environment.MachineName}";
-        AddressText.Text = $"接続先: {GetLanAddress()}:{runtime.Port}";
+        RefreshAddresses();
         foreach (var root in runtime.Store.GetRoots()) _roots.Add(root);
         _refresh.Tick += (_, _) => RefreshStatus();
         _refresh.Start();
@@ -25,6 +25,7 @@ public partial class MainWindow : Window
 
     private void RefreshStatus()
     {
+        RefreshAddresses();
         PairingCodeText.Text = AppRuntime.Server!.Store.PairingCode;
         var devices = AppRuntime.Server.Store.GetDevices();
         DevicesText.Text = devices.Count == 0 ? "まだ接続されていません" : string.Join("\n", devices.Select(d => $"{d.Name}　最終アクセス: {d.LastAccessLocal}"));
@@ -47,6 +48,21 @@ public partial class MainWindow : Window
         if (RootsList.SelectedItem is not SharedRoot selected) return;
         AppRuntime.Server!.Store.RemoveRoot(selected.Id);
         _roots.Remove(selected);
+    }
+
+    private void RefreshAddresses()
+    {
+        var vpn = LanAddressProvider.GetTailscaleAddress();
+        AddressText.Text = $"同じWi-Fi: {GetLanAddress()}:8765" +
+            (vpn is null ? "\n外出先: Tailscaleを接続してください" : $"\n外出先: {vpn}:8765（Tailscale）");
+    }
+
+    private void ExportSetup_Click(object sender, RoutedEventArgs e)
+    {
+        var dialog = new Microsoft.Win32.SaveFileDialog { FileName = "PCFileBridgeSetup.json", Filter = "接続設定 (*.json)|*.json" };
+        if (dialog.ShowDialog() != true) return;
+        try { File.WriteAllText(dialog.FileName, LocalSetupBroker.CreateSetup(AppRuntime.Server!)); }
+        catch (Exception ex) { System.Windows.MessageBox.Show(ex.Message, "設定を書き出せませんでした"); }
     }
 
     private static string GetLanAddress()

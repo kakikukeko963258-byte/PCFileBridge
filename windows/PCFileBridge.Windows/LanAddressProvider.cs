@@ -6,6 +6,13 @@ namespace PCFileBridge.Windows;
 
 internal static class LanAddressProvider
 {
+    public static IPAddress? GetTailscaleAddress() => NetworkInterface.GetAllNetworkInterfaces()
+        .Where(n => n.OperationalStatus == OperationalStatus.Up)
+        .SelectMany(n => n.GetIPProperties().UnicastAddresses)
+        .Select(u => u.Address)
+        .FirstOrDefault(a => a.AddressFamily == AddressFamily.InterNetwork &&
+            a.GetAddressBytes()[0] == 100 && a.GetAddressBytes()[1] is >= 64 and <= 127);
+
     public static IReadOnlyList<IPAddress> GetIPv4Addresses()
     {
         return NetworkInterface.GetAllNetworkInterfaces()

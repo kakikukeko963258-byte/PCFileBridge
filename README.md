@@ -71,3 +71,10 @@ Replicated File ProviderがFilesで取得したファイルはiOSのローカル
 ## API
 
 エンドポイント、JSON形式、変更アンカーは[protocol/api-spec.md](protocol/api-spec.md)を参照してください。
+
+
+## Tailscaleと入力不要の接続
+
+PCとiPhoneで同じTailscaleへ接続すると、PC画面の「外出先」アドレスから利用できます。PCの起動とサーバーの実行、Tailscaleの接続が必要です。接続後のトークンをiPhoneが保存するため、毎回コードを入力する必要はありません。
+
+Windows版の「初回の接続設定を書き出す」、または`--export-connection 出力先.json`で、10分以内の初回ペアリング設定を作れます。CLIは現在のWindowsユーザーだけが接続できる名前付きパイプ経由で、起動済みサーバーから設定を受け取ります。設定には期限付きコードを含むため公開しないでください。main側の配布補助スクリプトは、改造版で署名する直前にPC内だけで設定をIPAへ追加します。

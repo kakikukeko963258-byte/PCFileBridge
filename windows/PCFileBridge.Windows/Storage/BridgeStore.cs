@@ -42,6 +42,16 @@ public sealed class BridgeStore
     }
 
     public string PairingCode { get { lock (_gate) { RotatePairingIfExpired(); return _pairingCode; } } }
+    public (string Code, DateTime ExpiresUtc) GetPairingSetup()
+    {
+        lock (_gate)
+        {
+            RotatePairingIfExpired();
+            if (_pairingExpires < DateTime.UtcNow.AddMinutes(5))
+            { _pairingCode = NewPairingCode(); _pairingExpires = DateTime.UtcNow.AddMinutes(10); }
+            return (_pairingCode, _pairingExpires);
+        }
+    }
     public IReadOnlyList<SharedRoot> GetRoots() { lock (_gate) return _roots.Select(Clone).ToArray(); }
     public IReadOnlyList<DeviceRecord> GetDevices() { lock (_gate) return _devices.Select(d => new DeviceRecord { Id = d.Id, Name = d.Name, TokenHash = "", LastAccessUtc = d.LastAccessUtc }).ToArray(); }
 
