@@ -28,7 +28,8 @@ internal sealed class ConnectionQRWindow : Window
         RenderOptions.SetBitmapScalingMode(_image, BitmapScalingMode.NearestNeighbor);
         panel.Children.Add(_image); panel.Children.Add(_status);
         var refresh = new System.Windows.Controls.Button { Content = "QRコードを更新", Padding = new Thickness(12, 7, 12, 7), Margin = new Thickness(0, 12, 0, 0) };
-        refresh.Click += (_, _) => RenderQR(); panel.Children.Add(refresh); Content = panel;
+        refresh.Click += (_, _) => RenderQR(); panel.Children.Add(refresh);
+        Content = new ScrollViewer { Content = panel, VerticalScrollBarVisibility = ScrollBarVisibility.Auto };
         _timer.Tick += (_, _) => { if (_code != _server.Store.PairingCode) RenderQR(); };
         Loaded += (_, _) => { RenderQR(); _timer.Start(); };
         Closed += (_, _) => { _timer.Stop(); _image.Source = null; };
