@@ -50,6 +50,8 @@ public partial class MainWindow : Window
         foreach (var root in AppRuntime.Server.Store.GetRoots()) _roots.Add(root);
     }
 
+    private void ShowQR_Click(object sender, RoutedEventArgs e) => new ConnectionQRWindow(AppRuntime.Server!) { Owner = this }.Show();
+
     private void RemoveFolder_Click(object sender, RoutedEventArgs e)
     {
         if (RootsList.SelectedItem is not SharedRoot selected) return;

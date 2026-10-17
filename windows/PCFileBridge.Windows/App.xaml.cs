@@ -21,6 +21,7 @@ public partial class App : System.Windows.Application
             _ = LocalSetupBroker.ServeAsync(AppRuntime.Server, _setupCancellation.Token);
             MainWindow = new MainWindow();
             MainWindow.Show();
+            if (e.Args.Contains("--show-pairing-qr")) new ConnectionQRWindow(AppRuntime.Server) { Owner = MainWindow }.Show();
         }
         catch (Exception ex)
         {
