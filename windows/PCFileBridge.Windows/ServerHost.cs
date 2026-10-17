@@ -107,10 +107,10 @@ public sealed class ServerHost
             try
             {
                 var watcher = new FileSystemWatcher(root.Path) { IncludeSubdirectories = true, NotifyFilter = NotifyFilters.FileName | NotifyFilters.DirectoryName | NotifyFilters.LastWrite | NotifyFilters.Size, InternalBufferSize = 64 * 1024 };
-                watcher.Created += (_, e) => Store.ExternalChanged(e.FullPath, "updated");
-                watcher.Changed += (_, e) => Store.ExternalChanged(e.FullPath, "updated");
-                watcher.Deleted += (_, e) => Store.ExternalChanged(e.FullPath, "deleted");
-                watcher.Renamed += (_, e) => Store.ExternalRenamed(e.OldFullPath, e.FullPath);
+                watcher.Created += (_, e) => Observe(() => Store.ExternalChanged(e.FullPath, "updated"));
+                watcher.Changed += (_, e) => Observe(() => Store.ExternalChanged(e.FullPath, "updated"));
+                watcher.Deleted += (_, e) => Observe(() => Store.ExternalChanged(e.FullPath, "deleted"));
+                watcher.Renamed += (_, e) => Observe(() => Store.ExternalRenamed(e.OldFullPath, e.FullPath));
                 watcher.EnableRaisingEvents = true; _watchers[root.Id] = watcher;
             }
             catch { /* The API still works; status is visible in the desktop app. */ }
@@ -121,5 +121,12 @@ public sealed class ServerHost
     {
         foreach (var watcher in _watchers.Values) watcher.Dispose();
         await _advertiser.StopAsync(); await _app.StopAsync(); await _app.DisposeAsync();
+    }
+
+    private static void Observe(Action change)
+    {
+        try { change(); }
+        catch (IOException) { /* An entry can disappear while Windows reports its change. */ }
+        catch (UnauthorizedAccessException) { /* Protected system entries remain inaccessible. */ }
     }
 }
