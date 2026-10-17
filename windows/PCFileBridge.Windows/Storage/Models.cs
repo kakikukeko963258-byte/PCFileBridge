@@ -22,9 +22,10 @@ public sealed class BridgeItem
     public long Size { get; set; }
     public DateTime ModifiedUtc { get; set; }
     public required string Version { get; set; }
+    public bool ReadOnly { get; set; }
 }
 
-public sealed record ItemDto(string Id, string ParentId, string Name, bool IsDirectory, long Size, DateTime ModifiedUtc, string Version);
+public sealed record ItemDto(string Id, string ParentId, string Name, bool IsDirectory, long Size, DateTime ModifiedUtc, string Version, bool ReadOnly);
 public sealed record PairRequest(string Code, string DeviceName);
 public sealed record PairResponse(string DeviceId, string Token, string ServerName, int Port);
 public sealed record CreateItemRequest(string ParentId, string Name, bool IsDirectory);

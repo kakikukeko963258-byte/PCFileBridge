@@ -351,6 +351,7 @@ public sealed class BridgeStore
         if (!info.Exists && !SamePath(full, root?.Path ?? "")) throw new FileNotFoundException("項目が見つかりません。", full);
         var entry = existing ?? new BridgeItem { Id = "item-" + Guid.NewGuid().ToString("N"), ParentId = parentId, RootId = rootId, Name = "", Path = full, IsDirectory = isDirectory, Version = "" };
         entry.ParentId = parentId; entry.RootId = rootId; entry.Name = root?.Name ?? Path.GetFileName(full); entry.Path = full; entry.IsDirectory = isDirectory;
+        entry.ReadOnly = root?.ReadOnly ?? _roots.FirstOrDefault(r => r.Id == rootId)?.ReadOnly ?? false;
         entry.Size = isDirectory ? 0 : new FileInfo(full).Length; entry.ModifiedUtc = info.Exists ? info.LastWriteTimeUtc : DateTime.UtcNow;
         entry.Version = $"{entry.ModifiedUtc.Ticks:x}-{entry.Size:x}";
         _items[entry.Id] = entry; _pathIds[PathKey(full)] = entry.Id; return entry;
@@ -375,6 +376,7 @@ public sealed class BridgeStore
 
     private void RefreshMetadata(BridgeItem item)
     {
+        item.ReadOnly = _roots.FirstOrDefault(r => r.Id == item.RootId)?.ReadOnly ?? false;
         var info = item.IsDirectory ? (FileSystemInfo)new DirectoryInfo(item.Path) : new FileInfo(item.Path);
         if (info.Exists) { item.ModifiedUtc = info.LastWriteTimeUtc; item.Size = item.IsDirectory ? 0 : new FileInfo(item.Path).Length; item.Version = $"{item.ModifiedUtc.Ticks:x}-{item.Size:x}"; }
     }
@@ -445,8 +447,8 @@ public sealed class BridgeStore
     }
     private static string EncodePageToken(string name, string id) => Convert.ToBase64String(Encoding.UTF8.GetBytes(name + "\n" + id)).TrimEnd('=').Replace('+', '-').Replace('/', '_');
     private static string PathKey(string path) => Path.TrimEndingDirectorySeparator(Path.GetFullPath(path));
-    private static ItemDto ToDto(BridgeItem i) => new(i.Id, i.ParentId, i.Name, i.IsDirectory, i.Size, i.ModifiedUtc, i.Version);
-    private static BridgeItem Copy(BridgeItem i) => new() { Id = i.Id, ParentId = i.ParentId, RootId = i.RootId, Name = i.Name, Path = i.Path, IsDirectory = i.IsDirectory, Size = i.Size, ModifiedUtc = i.ModifiedUtc, Version = i.Version };
+    private static ItemDto ToDto(BridgeItem i) => new(i.Id, i.ParentId, i.Name, i.IsDirectory, i.Size, i.ModifiedUtc, i.Version, i.ReadOnly);
+    private static BridgeItem Copy(BridgeItem i) => new() { Id = i.Id, ParentId = i.ParentId, RootId = i.RootId, Name = i.Name, Path = i.Path, IsDirectory = i.IsDirectory, Size = i.Size, ModifiedUtc = i.ModifiedUtc, Version = i.Version, ReadOnly = i.ReadOnly };
     private static void EnsureWritable(SharedRoot root) { if (root.ReadOnly) throw new UnauthorizedAccessException("このドライブは読み取り専用です。"); }
     private static SharedRoot Clone(SharedRoot r) => new() { Id = r.Id, Name = r.Name, Path = r.Path, ReadOnly = r.ReadOnly };
     private T? Load<T>(string path) { try { return File.Exists(path) ? JsonSerializer.Deserialize<T>(File.ReadAllText(path), _json) : default; } catch { return default; } }
