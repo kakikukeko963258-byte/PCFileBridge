@@ -7,6 +7,7 @@ public sealed class SharedRoot
     public required string Id { get; set; }
     public required string Name { get; set; }
     public required string Path { get; set; }
+    public bool ReadOnly { get; set; }
     [JsonIgnore] public string DisplayLabel => $"{Name}    {Path}";
 }
 

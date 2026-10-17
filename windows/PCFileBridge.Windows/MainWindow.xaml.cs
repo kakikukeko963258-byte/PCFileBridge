@@ -43,6 +43,13 @@ public partial class MainWindow : Window
         catch (Exception ex) { System.Windows.MessageBox.Show(ex.Message, "追加できませんでした", MessageBoxButton.OK, MessageBoxImage.Warning); }
     }
 
+    private void AddAllDrives_Click(object sender, RoutedEventArgs e)
+    {
+        AppRuntime.Server!.Store.AddAllDrives();
+        _roots.Clear();
+        foreach (var root in AppRuntime.Server.Store.GetRoots()) _roots.Add(root);
+    }
+
     private void RemoveFolder_Click(object sender, RoutedEventArgs e)
     {
         if (RootsList.SelectedItem is not SharedRoot selected) return;

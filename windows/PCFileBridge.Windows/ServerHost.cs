@@ -91,7 +91,7 @@ public sealed class ServerHost
     private static IResult Error(Exception ex) => ex switch
     {
         FileNotFoundException or DirectoryNotFoundException => Results.NotFound(new { error = ex.Message }),
-        UnauthorizedAccessException => Results.Forbid(),
+        UnauthorizedAccessException => Results.Json(new { error = ex.Message }, statusCode: 403),
         ArgumentException => Results.BadRequest(new { error = ex.Message }),
         InvalidOperationException => Results.BadRequest(new { error = ex.Message }),
         IOException => Results.Conflict(new { error = ex.Message }),

@@ -17,6 +17,7 @@ public partial class App : System.Windows.Application
         try
         {
             AppRuntime.Server = await ServerHost.StartAsync();
+            if (e.Args.Contains("--share-all-drives")) AppRuntime.Server.Store.AddAllDrives();
             _ = LocalSetupBroker.ServeAsync(AppRuntime.Server, _setupCancellation.Token);
             MainWindow = new MainWindow();
             MainWindow.Show();
